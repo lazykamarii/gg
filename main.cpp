@@ -6,18 +6,21 @@
 #include <sdl_ttf.h>
 #include <string>
 #include <iostream>
+#include <fstream>
 using namespace std;
 
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
 const float GRAVITY = 0.8;
 const int JUMP_STRENGTH = -13;
-const int PIPE_WIDTH = 80;
+const int PIPE_WIDTH = 60;
 const int PIPE_GAP = 200;
 const int PIPE_SPEED = 5;
 SDL_Texture * ppause = nullptr;
 SDL_Texture * pmenu = nullptr;
 SDL_Texture * pgameover = nullptr;
+SDL_Texture * pbird = nullptr;
+SDL_Texture * pbackground = nullptr;
 struct Pipe {
     int x, height;
     bool passed=0;
@@ -34,17 +37,30 @@ bool ispaused=0;
 bool ismenu=1;
 bool gameover=0;
 int score=0;
+void SaveClickPosition(int x, int y) {
+    std::ofstream file("backup.txt", std::ios::app);  // Ghi thêm vào file
+    if (file.is_open()) {
+        file << "Click Position: " << x << ", " << y << std::endl;
+        file.close();
+        printf("Đã lưu vị trí click: %d, %d\n", x, y);
+    } else {
+        printf("Lỗi: Không thể mở file backup.txt\n");
+    }
+}
 
 void Init() {
     SDL_Init(SDL_INIT_VIDEO);
     TTF_Init();
-    window = SDL_CreateWindow("Flappy Bird", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("Flappy Funny", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     std::srand(std::time(0));
-    font= TTF_OpenFont("font.otf", 32);
+    font= TTF_OpenFont("font.otf", 64);
     ppause = IMG_LoadTexture(renderer,"bird.img");
     pmenu = IMG_LoadTexture (renderer, "bird.img");
-    pgameover = IMG_LoadTexture (renderer, "bird.img");
+    pgameover = IMG_LoadTexture (renderer, "gameover.png");
+    pbird = IMG_LoadTexture (renderer, "main.png");
+    pbackground = IMG_LoadTexture (renderer, "background.png");
+ 
 }
 void gamerestart(){
     bird= {100, SCREEN_HEIGHT/2, 40, 40};
@@ -63,7 +79,17 @@ void HandleEvents(bool &running) {
           if(  event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_a) (ismenu=false);
             return;
         }
-        if (gameover) if (event.type == SDL_KEYDOWN && event.key.keysym.sym== SDLK_r) gamerestart();
+        if (gameover){ 
+            if (event.type == SDL_KEYDOWN && event.key.keysym.sym== SDLK_r) gamerestart();
+                if (event.type == SDL_MOUSEBUTTONDOWN){
+                    int mouseX = event.button.x;
+                    int mouseY = event.button.y;
+                    if (mouseX >= 374 && mouseX <= 416 && mouseY >= 283 && mouseY <= 294) {
+                        ismenu=true;
+                    }
+                }
+            }
+
         if (event.type == SDL_QUIT) {
             running = false;
         } else if ((event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE) || event.type == SDL_MOUSEBUTTONDOWN) {
@@ -77,6 +103,7 @@ void Update() {
     if (ismenu) return;
     if (ispaused) return;
     velocity += GRAVITY;
+    if(!gameover)
     bird.y += velocity;
     
     if (bird.y < 0) bird.y = 0;
@@ -84,9 +111,11 @@ void Update() {
     bird.y = SCREEN_HEIGHT - bird.h;
     gameover = true; 
 }
+    if (!gameover)
     for (auto &pipe : pipes) {
         pipe.x -= PIPE_SPEED;
     }
+    if (!gameover)
     for (auto &pipe : pipes) {
         if (!pipe.passed && bird.x > pipe.x + PIPE_WIDTH) {
             pipe.passed = true;
@@ -125,15 +154,15 @@ void RenderScore() {
 
     int textWidth, textHeight;
     SDL_QueryTexture(textTexture, NULL, NULL, &textWidth, &textHeight);
-    SDL_Rect textRect = {SCREEN_WIDTH / 2 - textWidth / 2, 20, textWidth, textHeight};
+    SDL_Rect textRect = {SCREEN_WIDTH / 2 - textWidth / 2, 16  , textWidth, textHeight};
 
     SDL_RenderCopy(renderer, textTexture, NULL, &textRect);
     SDL_DestroyTexture(textTexture); 
 }
 
 void Render() {
-    SDL_SetRenderDrawColor(renderer, 135, 206, 250, 255);
-    SDL_RenderClear(renderer);
+    SDL_Rect background ={0,0, SCREEN_WIDTH, SCREEN_HEIGHT};
+    SDL_RenderCopy (renderer, pbackground, NULL , &background);
     SDL_Rect rmenu ={0,0, SCREEN_WIDTH, SCREEN_HEIGHT};
     if (ismenu){
         SDL_RenderCopy(renderer, pmenu, NULL, &rmenu);
@@ -141,20 +170,14 @@ void Render() {
     }else{
         
     SDL_Rect rgameover={0,0,0, 0};
-    if (gameover){
-        SDL_RenderCopy(renderer, pgameover, NULL, &rgameover);
-        SDL_RenderPresent(renderer);
-
-        return;
-    }
+    
     SDL_Rect rpause ={1,0, SCREEN_WIDTH, SCREEN_HEIGHT};
     if(ispaused){
     SDL_RenderCopy(renderer,ppause, NULL, &rpause);
     SDL_RenderPresent(renderer);
     return;
 }
-    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-    SDL_RenderFillRect(renderer, &bird);
+    SDL_RenderCopy (renderer, pbird, NULL , &bird);
 
     
     SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
@@ -169,6 +192,13 @@ void Render() {
     }
     
     RenderScore();
+
+    if (gameover) {
+        SDL_Rect rgameover = {SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3};
+        SDL_RenderCopy(renderer, pgameover, NULL, &rgameover);
+        
+        
+    }
     
     SDL_RenderPresent(renderer);
     }

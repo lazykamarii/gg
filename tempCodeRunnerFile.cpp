@@ -1,157 +1,116 @@
 #include <SDL2/SDL.h>
-#include <vector>
-#include <cstdlib>
-#include <ctime>
-#include <sdl_image.h>
+#include <SDL2/SDL_ttf.h>
+#include <iostream>
+#include <SDL_image.h>
+#include <fstream>
 
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
-const int GRAVITY = 1;
-const int JUMP_STRENGTH = -15;
-const int PIPE_WIDTH = 80;
-const int PIPE_GAP = 200;
-const int PIPE_SPEED = 5;
-SDL_Texture * ppause = nullptr;
-SDL_Texture * pmenu = nullptr;
-SDL_Texture * pgameover = nullptr;
-struct Pipe {
-    int x, height;
-    bool passed;
-};
 
 SDL_Window* window = nullptr;
 SDL_Renderer* renderer = nullptr;
-SDL_Rect bird = {100, SCREEN_HEIGHT / 2, 40, 40};
-int velocity = 0;
-std::vector<Pipe> pipes;
-bool ispaused=0;
-bool ismenu=1;
-bool gameover=0;
-int score=0;
+TTF_Font* font = nullptr;
+SDL_Texture * pgameover = nullptr;
+    
 
 void Init() {
-    SDL_Init(SDL_INIT_VIDEO);
-    window = SDL_CreateWindow("Flappy Bird", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        std::cout << "SDL could not initialize! SDL_Error: " << SDL_GetError() << std::endl;
+        exit(1);
+    }
+    
+    if (TTF_Init() == -1) {
+        std::cout << "SDL_ttf could not initialize! TTF_Error: " << TTF_GetError() << std::endl;
+        exit(1);
+    }
+
+    window = SDL_CreateWindow("SDL2 + TTF", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    if (!window) {
+        std::cout << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
+        exit(1);
+    }
+
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    std::srand(std::time(0));
-    ppause = IMG_LoadTexture(renderer,"bird.img");
-    pmenu = IMG_LoadTexture (renderer, "bird.img");
-    pgameover = IMG_LoadTexture (renderer, "bird.img");
-}
-void gamerestart(){
-    bird= {100, SCREEN_HEIGHT/2, 40, 40};
-    pipes.clear();
-    score=0;
-    gameover=false;
-    velocity=0;
-    ismenu=0;
-    ispaused=0;
-    
-}
-void HandleEvents(bool &running) {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        if (ismenu){
-          if(  event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_a) (ismenu=!ismenu);
-          else return;
-        }
-        if (gameover) if (event.type == SDL_KEYDOWN && event.key.keysym.sym== SDLK_r) gamerestart();
-        if (event.type == SDL_QUIT) {
-            running = false;
-        } else if ((event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE) || event.type == SDL_MOUSEBUTTONDOWN) {
-            velocity = JUMP_STRENGTH;
-        }
-        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) (ispaused=!ispaused);
+    if (!renderer) {
+        std::cout << "Renderer could not be created! SDL_Error: " << SDL_GetError() << std::endl;
+        exit(1);
     }
+
+    font = TTF_OpenFont("font.otf", 72);  // Đảm bảo có file "arial.ttf" trong thư mục chạy
+    if (!font) {
+        std::cout << "Failed to load font! TTF_Error: " << TTF_GetError() << std::endl;
+        exit(1);
+    }
+    pgameover = IMG_LoadTexture (renderer, "gameover.png");
 }
 
-void Update() {
-    if (ismenu) return;
-    if (ispaused) return;
-    velocity += GRAVITY;
-    bird.y += velocity;
-    
-    if (bird.y < 0) bird.y = 0;
-    if (bird.y > SCREEN_HEIGHT - bird.h) bird.y = SCREEN_HEIGHT - bird.h;
-    gameover=true;
-
-    for (auto &pipe : pipes) {
-        pipe.x -= PIPE_SPEED;
-    }
-    
-    if (pipes.empty() || pipes.back().x < SCREEN_WIDTH - 300) {
-        pipes.push_back({SCREEN_WIDTH, rand() % (SCREEN_HEIGHT - PIPE_GAP - 100) + 50, false});
-    }
-    
-    if (!pipes.empty() && pipes.front().x < -PIPE_WIDTH) {
-        pipes.erase(pipes.begin());
-    }
-    
-    for (auto &pipe : pipes) {
-        if (bird.x + bird.w > pipe.x && bird.x < pipe.x + PIPE_WIDTH) {
-            if (bird.y < pipe.height || bird.y + bird.h > pipe.height + PIPE_GAP) {
-                
-                gameover=true;
-                break;
-            }
-        }
+SDL_Texture* RenderText(const std::string &message, SDL_Color color) {
+    SDL_Surface* textSurface = TTF_RenderText_Solid(font, message.c_str(), color);
+    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    SDL_FreeSurface(textSurface);
+    return textTexture;
+}
+void SaveClickPosition(int x, int y) {
+    std::ofstream file("backup.txt", std::ios::app);  // Ghi thêm vào file
+    if (file.is_open()) {
+        file << "Click Position: " << x << ", " << y << std::endl;
+        file.close();
+        printf("Đã lưu vị trí click: %d, %d\n", x, y);
+    } else {
+        printf("Lỗi: Không thể mở file backup.txt\n");
     }
 }
 
 void Render() {
-    SDL_SetRenderDrawColor(renderer, 135, 206, 250, 255);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);  // Màu nền đen
     SDL_RenderClear(renderer);
-    SDL_Rect rmenu ={0,0, SCREEN_WIDTH, SCREEN_HEIGHT};
-    if (ismenu){
-        SDL_RenderCopy(renderer, pmenu, NULL, &rmenu);
-        SDL_RenderPresent(renderer);
-        return;
-    }
-    SDL_Rect rgameover={0,0,0, 0};
-    if (gameover){
-        SDL_RenderCopy(renderer, pgameover, NULL, &rgameover);
-        SDL_RenderPresent(renderer);
 
-        return;
-    }
-    SDL_Rect rpause ={1,0, SCREEN_WIDTH, SCREEN_HEIGHT};
-    if(ispaused){
-    SDL_RenderCopy(renderer,ppause, NULL, &rpause);
-    SDL_RenderPresent(renderer);
-    return;
-}
-    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
-    SDL_RenderFillRect(renderer, &bird);
-
+    SDL_Color textColor = {255, 255, 255};  // Màu trắng
+    SDL_Texture* textTexture = RenderText("ABC", textColor);
     
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-    for (const auto &pipe : pipes) {
-        SDL_Rect topPipe = {pipe.x, 0, PIPE_WIDTH, pipe.height};
-        SDL_Rect bottomPipe = {pipe.x, pipe.height + PIPE_GAP, PIPE_WIDTH, SCREEN_HEIGHT - pipe.height - PIPE_GAP};
-        SDL_RenderFillRect(renderer, &topPipe);
-        SDL_RenderFillRect(renderer, &bottomPipe);
+    int textW, textH;
+    SDL_QueryTexture(textTexture, nullptr, nullptr, &textW, &textH);
+    SDL_Rect renderQuad = { (SCREEN_WIDTH - textW) / 2, (SCREEN_HEIGHT - textH) / 2, textW, textH };
 
-    }
-    
+    SDL_RenderCopy(renderer, textTexture, nullptr, &renderQuad);
     SDL_RenderPresent(renderer);
+
+    SDL_DestroyTexture(textTexture);
+    
+    SDL_Rect rgameover = {SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3};
+    SDL_RenderCopy(renderer, pgameover, NULL, &rgameover);
+    SDL_RenderPresent (renderer);
 }
 
 void Cleanup() {
+    TTF_CloseFont(font);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    TTF_Quit();
     SDL_Quit();
 }
 
 int main(int argc, char* argv[]) {
     Init();
     bool running = true;
+    SDL_Event event;
+
     while (running) {
-        HandleEvents(running);
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                running = false;
+            }
+            if (event.type == SDL_MOUSEBUTTONDOWN) {
+                int mouseX = event.button.x;
+                int mouseY = event.button.y;
+                SaveClickPosition(mouseX, mouseY);
+            }
+        }
+
         Render();
-        Update();
-        
-        SDL_Delay(16);
+        SDL_Delay(100);
     }
+
     Cleanup();
     return 0;
 }

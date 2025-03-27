@@ -9,3 +9,6 @@ Click Position: 565, 1200749440
 Click Position: 565, 1200749440
 Click Position: 374, 283
 Click Position: 416, 294
+Click Position: 296, 156
+Click Position: 296, 153
+Click Position: 511, 204

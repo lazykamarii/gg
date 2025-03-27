@@ -21,6 +21,7 @@ SDL_Texture * pmenu = nullptr;
 SDL_Texture * pgameover = nullptr;
 SDL_Texture * pbird = nullptr;
 SDL_Texture * pbackground = nullptr;
+SDL_Texture * ppausebutton = nullptr;
 struct Pipe {
     int x, height;
     bool passed=0;
@@ -56,11 +57,11 @@ void Init() {
     std::srand(std::time(0));
     font= TTF_OpenFont("font.otf", 64);
     ppause = IMG_LoadTexture(renderer,"bird.img");
-    pmenu = IMG_LoadTexture (renderer, "bird.img");
+    pmenu = IMG_LoadTexture (renderer, "menu.png");
     pgameover = IMG_LoadTexture (renderer, "gameover.png");
     pbird = IMG_LoadTexture (renderer, "main.png");
     pbackground = IMG_LoadTexture (renderer, "background.png");
- 
+    ppausebutton = IMG_LoadTexture (renderer, "pausebutton.png");
 }
 void gamerestart(){
     bird= {100, SCREEN_HEIGHT/2, 40, 40};
@@ -76,7 +77,18 @@ void HandleEvents(bool &running) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (ismenu){
-          if(  event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_a) (ismenu=false);
+            if (event.type == SDL_QUIT) {
+                running = false;
+            }
+            if(  event.type == SDL_MOUSEBUTTONDOWN ) {
+            int mouseX = event.button.x;
+            int mouseY = event.button.y;
+                if (mouseX >= 296 && mouseX <= 511 && mouseY >= 153 && mouseY <= 204) {
+                    ismenu=false;
+                    gamerestart();
+                } 
+            
+            }
             return;
         }
         if (gameover){ 
@@ -170,7 +182,10 @@ void Render() {
     }else{
         
     SDL_Rect rgameover={0,0,0, 0};
-    
+    if (!gameover && !ispaused) {
+        SDL_Rect pausebutton = {10, 10, 40, 40};
+        SDL_RenderCopy (renderer, ppausebutton, NULL, &pausebutton);
+    }
     SDL_Rect rpause ={1,0, SCREEN_WIDTH, SCREEN_HEIGHT};
     if(ispaused){
     SDL_RenderCopy(renderer,ppause, NULL, &rpause);

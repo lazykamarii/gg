@@ -31,11 +31,15 @@
     SDL_Texture *pcot1 = nullptr;
     SDL_Texture *pcot2 = nullptr;
     SDL_Texture *menu2 = nullptr;
+    SDL_Texture * musicon = nullptr;
+    SDL_Texture * musicoff = nullptr;
+    SDL_Texture * cloudd = nullptr;
     Mix_Music * bgmusic = nullptr;
     Mix_Music * menumusic = nullptr;
     Mix_Music * gover = nullptr;
     Mix_Chunk * jump = nullptr;
     Mix_Chunk * getscore = nullptr;
+
 
     struct Pipe {
         int x, height;
@@ -43,6 +47,14 @@
         bool isMoving = (rand() % 10 == 0);
         int verticalSpeed = (isMoving ? (rand() % 3 + 1) * (rand() % 2 == 0 ? 1 : -1) : 0);
         
+    };
+    struct Cloud {
+        int x, y;
+        int alpha;
+        int lifetime;
+        int vx;
+    
+        Cloud(int x, int y) : x(x), y(y), alpha(255), lifetime(60), vx(-2) {}
     };
     TTF_Font* font = nullptr;
     SDL_Color textColor={255, 255, 255};
@@ -52,6 +64,7 @@
     SDL_Rect bird = {100, SCREEN_HEIGHT / 2, 40, 40};
     float velocity = 0;
     std::vector<Pipe> pipes;
+    std::vector<Cloud> clouds;
     bool ispaused=0;
     bool ismenu;
     bool ismenu2;
@@ -61,6 +74,7 @@
     bool alive = 1;
     bool ishighscore =0;
     bool gameoverMusicPlayed = false;
+    bool cd = 0;
     
 
     void MenuMusic(){
@@ -90,23 +104,28 @@
 
         std::srand(std::time(0));
         font= TTF_OpenFont("font.otf", 64);
-        ppause = IMG_LoadTexture(renderer,"pause.png");
-        pmenu = IMG_LoadTexture (renderer, "menu.png");
-        pgameover = IMG_LoadTexture (renderer, "gameover.png");
-        pbird = IMG_LoadTexture (renderer, "main.png");
-        pbackground = IMG_LoadTexture (renderer, "background.png");
-        ppausebutton = IMG_LoadTexture (renderer, "pausebutton.png");
-        punpausebutton = IMG_LoadTexture (renderer, "unpausebutton.png");
-        phighscore = IMG_LoadTexture (renderer, "highscore.png");
-        die = IMG_LoadTexture (renderer, "maindie.png");
-        pcot1 = IMG_LoadTexture(renderer, "cot1.png");
-        pcot2 = IMG_LoadTexture(renderer, "cot2.png");
-        menu2 = IMG_LoadTexture (renderer, "menu2.png");
-        menumusic = Mix_LoadMUS ("menumusic.mp3");
-        bgmusic = Mix_LoadMUS ("bgmusic.wav");
-        gover = Mix_LoadMUS ("gameover.mp3");
-        jump = Mix_LoadWAV ("jump.wav");
-        getscore = Mix_LoadWAV ("getscore.wav");
+        ppause = IMG_LoadTexture(renderer,"img/pause.png");
+        pmenu = IMG_LoadTexture (renderer, "img/menu.png");
+        pgameover = IMG_LoadTexture (renderer, "img/gameover.png");
+        pbird = IMG_LoadTexture (renderer, "img/main.png");
+        pbackground = IMG_LoadTexture (renderer, "img/background.png");
+        ppausebutton = IMG_LoadTexture (renderer, "img/pausebutton.png");
+        punpausebutton = IMG_LoadTexture (renderer, "img/unpausebutton.png");
+        phighscore = IMG_LoadTexture (renderer, "img/highscore.png");
+        die = IMG_LoadTexture (renderer, "img/maindie.png");
+        pcot1 = IMG_LoadTexture(renderer, "img/cot1.png");
+        pcot2 = IMG_LoadTexture(renderer, "img/cot2.png");
+        menu2 = IMG_LoadTexture (renderer, "img/menu2.png");
+        musicon = IMG_LoadTexture (renderer, "img/musicon.png");
+        musicoff = IMG_LoadTexture (renderer, "img/musicoff.png");
+        cloudd = IMG_LoadTexture (renderer, "img/cloud.png");
+        if (ismusic){
+        menumusic = Mix_LoadMUS ("music/menumusic.mp3");
+        bgmusic = Mix_LoadMUS ("music/bgmusic.wav");
+        gover = Mix_LoadMUS ("music/gameover.mp3");
+        jump = Mix_LoadWAV ("music/jump.wav");
+        getscore = Mix_LoadWAV ("music/getscore.wav");
+        }
         
     }
 
@@ -131,7 +150,7 @@
         ispaused=0;
         alive = 1;
         gameoverMusicPlayed = 0;
-        Mix_PlayMusic (bgmusic, -1);
+        if (ismusic) Mix_PlayMusic (bgmusic, -1);
         
     }
 
@@ -196,12 +215,12 @@
         }
     }
     void SaveGame() {
-        ofstream file("save.txt");
+        ofstream file("save.txt", ios::trunc);
         if (!file.is_open()) {
             return;
         }
         
-        file << bird.x << " " << bird.y << " " << velocity << " " << score <<" " << gameover << alive << endl;
+        file << bird.x << " " << bird.y << " " << velocity << " " << score <<" " << gameover << " " << alive << endl;
         
         file << pipes.size() << endl;
         for (const auto& pipe : pipes) {
@@ -210,6 +229,7 @@
         }
         
         file << ismusic << endl;
+
         file.close();
     }
 
@@ -231,6 +251,9 @@
         }
         
         file.close();
+        ofstream filee ("save.txt",ios::trunc);
+        filee.close();
+
     }
     
 
@@ -243,9 +266,21 @@
             int mouseY = event.button.y;
     
             if (event.type == SDL_QUIT) {
-                if ((ismenu != ismenu2) || ishighscore) SaveGame();
+                if ( !ismenu2 && !ismenu && !ishighscore && !gameover ) SaveGame();
                 running = false;
                 return;
+            }
+            if (event.type== SDL_MOUSEBUTTONDOWN ){
+                if (mouseX >= SCREEN_WIDTH - 60 && mouseX <= SCREEN_WIDTH - 10 &&
+                    mouseY >= 10 && mouseY <= 60) {
+                    ismusic = !ismusic;
+                    Mix_HaltMusic();
+                    ofstream file ("music.txt", ios::trunc);
+                    if (ismusic) file << 1;
+                    else file << 0;
+                
+                    
+                }
             }
     
             if (ismenu) {
@@ -254,7 +289,7 @@
                         Mix_HaltMusic();
                         ismenu = false;
                         gamerestart();
-                        Mix_PlayMusic(bgmusic, -1);
+                        if(ismusic) Mix_PlayMusic(bgmusic, -1);
                     } else if (mouseX >= 319 && mouseX <= 486 && mouseY >= 312 && mouseY <= 363) {
                         running = false;
                     } else if (mouseX >= 207 && mouseX <= 595 && mouseY >= 236 && mouseY <= 285) {
@@ -266,14 +301,35 @@
             }
     
             if (ismenu2) {
-                // Xử lý sự kiện menu2 nếu cần
+                if(event.type== SDL_MOUSEBUTTONDOWN){
+                    if (mouseX >=273 && mouseX<=530 && mouseY >=149 && mouseY <=206){
+                        LoadGame();
+                        cd=1;
+                        ismenu2 =false;
+                        ispaused = false;
+                        SDL_Delay(500);
+                        if(ismusic) Mix_PlayMusic(bgmusic, -1);
+                    }
+                    if (mouseX >=237 && mouseX<=567 && mouseY >=235 && mouseY <=282) {
+                        gamerestart();
+                        ismenu2=false;
+                    }
+                    if (mouseX >=208 && mouseX<=593 && mouseY >=317 && mouseY <=364){
+                        ismenu2 = false;
+                        ishighscore = true;
+                    }
+                    if (mouseX >=327 && mouseX<=481 && mouseY >=399 && mouseY <=447){
+                        running =false;
+                    }
+                    
+                }
             }
     
             if (ishighscore) {
                 if (event.type == SDL_MOUSEBUTTONDOWN && 
                     mouseX >= 17 && mouseX <= 58 && 
                     mouseY >= 28 && mouseY <= 62) {
-                    ismenu = true;
+                    CheckMenu();
                     ishighscore = false;
                 }
                 return;
@@ -285,8 +341,8 @@
                 }
                 if (event.type == SDL_MOUSEBUTTONDOWN) {
                     if (mouseX >= 374 && mouseX <= 416 && mouseY >= 283 && mouseY <= 294) {
-                        ismenu = true;
-                        Mix_PlayMusic(menumusic, -1);
+                        CheckMenu();
+                        if(ismusic) Mix_PlayMusic(menumusic, -1);
                     }
                 }
                 return;
@@ -295,27 +351,46 @@
             if (event.type == SDL_KEYDOWN) {
                 if (event.key.keysym.sym == SDLK_SPACE) {
                     Mix_VolumeChunk(jump, MIX_MAX_VOLUME * 0.2);
-                    Mix_PlayChannel(-1, jump, 0);
+                    if (ismusic) Mix_PlayChannel(-1, jump, 0);
                     velocity = JUMP_STRENGTH;
+                    clouds.push_back(Cloud(bird.x, bird.y + bird.h));
                 } else if (event.key.keysym.sym == SDLK_ESCAPE) {
                     ispaused = !ispaused;
                 }
             }
-    
             if (ispaused) {
                 if (event.type == SDL_MOUSEBUTTONDOWN) {
                     if (mouseX >= 327 && mouseX <= 476 && mouseY >= 235 && mouseY <= 260) {
                         ismenu = true;
-                        Mix_PlayMusic(menumusic, -1);
+                        if (!gameover)
+                        SaveGame();
+                        CheckMenu();
+                        if(ismusic) Mix_PlayMusic(menumusic, -1);
                     } else if ((mouseX >= 288 && mouseX <= 535 && mouseY >= 192 && mouseY <= 216) || 
                                (mouseX >= 16 && mouseX <= 49 && mouseY >= 15 && mouseY <= 45)) {
                         ispaused = false;
+                        if(ismusic) Mix_PlayMusic(bgmusic, -1);
+                        cd=1;
                     }
                 }
                 return;
             }
-        }
+            if (ismenu2== ismenu && !ishighscore && !gameover ) {
+                if (event.type == SDL_MOUSEBUTTONDOWN) {
+                    if (mouseX >= 10 && mouseX <= 50 && mouseY >= 10 && mouseY <= 50) { 
+                        ispaused = !ispaused;
+            
+                        if (ispaused) {
+                            Mix_HaltMusic();
+                        } else {
+                           if(ismusic) Mix_PlayMusic(bgmusic, -1);
+                        }
+                    }
+                }
+                return;
+            }
     }
+}
     
 
     void Update() {
@@ -336,7 +411,7 @@
                     
         if (!gameoverMusicPlayed && !ishighscore) {
         if (gover) {
-        Mix_PlayMusic(gover, 1);
+        if(ismusic) Mix_PlayMusic(gover, 1);
         } 
         gameoverMusicPlayed = true;
     }
@@ -361,7 +436,18 @@
             if (!pipe.passed && bird.x > pipe.x + PIPE_WIDTH) {
                 pipe.passed = true;
                 score++;
-                Mix_PlayChannel(1, getscore, 0);
+                if(ismusic) Mix_PlayChannel(1, getscore, 0);
+            }
+        }
+        for (auto it = clouds.begin(); it != clouds.end();) {
+            it->alpha -= 4;
+            it->x += it->vx;
+            it->lifetime--;
+        
+            if (it->alpha <= 0 || it->lifetime <= 0) {
+                it = clouds.erase(it);
+            } else {
+                ++it;
             }
         }
         
@@ -385,7 +471,7 @@
     
             if (!gameoverMusicPlayed ) {
             if (gover) {
-            Mix_PlayMusic(gover, 1);
+             if (ismusic) Mix_PlayMusic(gover, 1);
         } 
             gameoverMusicPlayed = true;
         }
@@ -416,20 +502,35 @@
     }
 
     void Render() {
+
         
         SDL_Rect background = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
         SDL_RenderCopy(renderer, pbackground, NULL, &background);
-    
-        
+        SDL_Rect music = {SCREEN_WIDTH - 60, 10 , 50, 50};
         if (ismenu) {
             SDL_Rect rmenu = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
             SDL_RenderCopy(renderer, pmenu, NULL, &rmenu);
             SDL_RenderPresent(renderer);
+            if (ismusic){
+                SDL_RenderCopy(renderer, musicon, NULL, &music);
+                SDL_RenderPresent(renderer);
+            }else{ 
+                SDL_RenderCopy (renderer, musicoff, NULL, &music);
+                SDL_RenderPresent(renderer);
+            }
             return;
         }
         if (ismenu2){ 
             SDL_Rect rmenu2 = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
             SDL_RenderCopy (renderer, menu2, NULL, &rmenu2);
+            
+            if (ismusic){
+                SDL_RenderCopy(renderer, musicon, NULL, &music);
+                
+            }else{ 
+                SDL_RenderCopy (renderer, musicoff, NULL, &music);
+                
+            }
             SDL_RenderPresent(renderer);
             return;
     }
@@ -439,6 +540,14 @@
             SDL_Rect highscore = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
             SDL_RenderCopy(renderer, phighscore, NULL, &highscore);
             RenderHighScore();
+            
+            if (ismusic){
+                SDL_RenderCopy(renderer, musicon, NULL, &music);
+                
+            }else{ 
+                SDL_RenderCopy (renderer, musicoff, NULL, &music);
+                
+            }
             SDL_RenderPresent(renderer);
             return;
         }
@@ -448,12 +557,17 @@
             SDL_Rect pausebutton = {10, 10, 40, 40};
             SDL_RenderCopy(renderer, ppausebutton, NULL, &pausebutton);
         }
-    
+        
         
         if (alive) {
             SDL_RenderCopy(renderer, pbird, NULL, &bird);
         } else {
             SDL_RenderCopy(renderer, die, NULL, &bird);
+        }
+        for (const auto& cloud : clouds) {
+            SDL_Rect cloudRect = { cloud.x, cloud.y, 50, 30 }; 
+            SDL_SetTextureAlphaMod(cloudd, cloud.alpha);  
+            SDL_RenderCopy(renderer, cloudd, NULL, &cloudRect);
         }
     
         
@@ -467,6 +581,7 @@
     
         
         RenderScore();
+
     
         
         if (ispaused) {
@@ -477,12 +592,20 @@
             SDL_RenderPresent(renderer);
             return;
         }
+        if (ismusic){
+            SDL_RenderCopy(renderer, musicon, NULL, &music);
+            
+        }else{ 
+            SDL_RenderCopy (renderer, musicoff, NULL, &music);
+            
+        }
     
         
         if (gameover) {
             SDL_Rect rgameover = {SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 3};
             SDL_RenderCopy(renderer, pgameover, NULL, &rgameover);
         }
+        
     
         
         SDL_RenderPresent(renderer);
@@ -538,15 +661,17 @@
     int main(int argc, char* argv[]) {
         Init();
         bool running = true;
-        Mix_PlayMusic (menumusic, -1);
+        ifstream  file ("muisc.txt");
+        int temp;
+        file >> temp;
+        ismusic =temp;
+        if (ismusic) Mix_PlayMusic (menumusic, -1);
         CheckMenu();
         while (running) {
             HandleEvents(running);
             
             Update();
             Render();
-
-            
             SDL_Delay(16);
         }
         Cleanup();

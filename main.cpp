@@ -99,7 +99,7 @@
         TTF_Init();
         Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
         
-        window = SDL_CreateWindow("Flappy Funny", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+        window = SDL_CreateWindow("Jump and Drop", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
         std::srand(std::time(0));

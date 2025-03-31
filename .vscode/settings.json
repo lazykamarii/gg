@@ -1,6 +1,9 @@
 {
     "files.associations": {
         "cstdlib": "cpp",
-        "vector": "cpp"
+        "vector": "cpp",
+        "*.tcc": "cpp",
+        "iosfwd": "cpp",
+        "fstream": "cpp"
     }
 }
